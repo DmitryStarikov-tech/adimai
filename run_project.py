@@ -4,7 +4,6 @@ import torch.nn as nn
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from huggingface_hub import hf_hub_download
 
-# --- 1. Классы кастомной архитектуры ---
 class PLELayer(nn.Module):
     def __init__(self, original_layer, model_ref, vocab_size, d_model, ple_dim):
         super().__init__()
@@ -20,7 +19,6 @@ class PLELayer(nn.Module):
     def forward(self, hidden_states, *args, **kwargs):
         layer_outputs = self.original_layer(hidden_states, *args, **kwargs)
         
-        # Проверяем, вернул ли слой кортеж (tuple) или просто тензор
         if isinstance(layer_outputs, tuple):
             out_hidden = layer_outputs[0]
         else:
@@ -36,7 +34,6 @@ class PLELayer(nn.Module):
         
         out_hidden = out_hidden + ple_out
         
-        # Возвращаем в том же формате, в котором получили
         if isinstance(layer_outputs, tuple):
             return (out_hidden,) + layer_outputs[1:]
         else:
@@ -73,10 +70,8 @@ def inject_routers(model, router_layers=[8, 16, 24]):
     model.router_layers = router_layers
     return model
 
-# --- 2. Сборка и Запуск ---
 def main():
     repo_id = "StarikovDima/adimai"
-    print("\n[1/4] Инициализация движка и скачивание базы (4-bit)...")
     
     quantization_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -90,7 +85,6 @@ def main():
         device_map="auto"
     )
 
-    print("[2/4] Загрузка и врезка памяти PLE...")
     model = inject_ple(model)
     ple_path = hf_hub_download(repo_id=repo_id, filename="ple_weights.pt")
     model.load_state_dict(torch.load(ple_path, map_location=model.device), strict=False)
@@ -103,11 +97,8 @@ def main():
     routers_state = {k: v.half() for k, v in routers_state.items()}
     model.early_routers.load_state_dict(routers_state)
 
-    print("[4/4] Готово! Терминал запущен.\n")
-    print("="*50)
-    print("🤖 Qwen-Hybrid (PLE + Условная глубина) активирован.")
+    print("Готово! Терминал запущен.\n")
     print("Введите 'exit' для выхода.")
-    print("="*50)
 
     while True:
         user_input = input("\nВы: ")
@@ -117,7 +108,6 @@ def main():
             
         inputs = tokenizer(f"<|im_start|>user\n{user_input}<|im_end|>\n<|im_start|>assistant\n", return_tensors="pt").to(model.device)
         
-        # Стандартная генерация (добавлено do_sample=True)
         outputs = model.generate(
             **inputs, 
             max_new_tokens=200, 
