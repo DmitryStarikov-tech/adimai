@@ -27,6 +27,7 @@ def run_code(generated_text):
     code = code_match.group(1).strip()
     code = code.replace("plt.show()", "plt.savefig('plot.png')")
     
+    # Исправленная обертка
     wrapper = f"""
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -36,21 +37,21 @@ import inspect
 
 if __name__ == '__main__':
     try:
-        functions = [(name, func) for name, func in locals().items() if inspect.isfunction(func) and name.startswith('plot_')]
+        # Ищем только те имена, которые начинаются на plot_ и являются функциями
+        funcs = [obj for name, obj in list(globals().items()) if name.startswith('plot_') and callable(obj)]
         
-        if functions:
-            func_name, func = functions[0]
+        if funcs:
+            func = funcs[0]
+            func_name = func.__name__
             print(f"[Песочница]: Вызываю функцию {{func_name}}()...")
             
             sig = inspect.signature(func)
             if len(sig.parameters) > 0:
-                # Если функция просит аргумент (например, file_path)
                 func('data.csv')
             else:
-                # Если функция пустая (сама читает файл)
                 func()
         else:
-            print("[Песочница]: Функция для графика не найдена, выполняю код как скрипт.")
+            print("[Песочница]: Функция для графика не найдена.")
     except FileNotFoundError:
         print("[Песочница]: ОШИБКА! Файл 'data.csv' не найден.")
     except Exception as e:
