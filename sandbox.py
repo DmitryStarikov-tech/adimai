@@ -26,6 +26,7 @@ def run_code(generated_text):
 
     code = code_match.group(1).strip()
     code = code.replace("plt.show()", "plt.savefig('plot.png')")
+    code = re.sub(r"pd\.read_csv\([^)]+\)", "pd.read_csv('data.csv')", code)
     
     # Исправленная обертка
     wrapper = f"""
