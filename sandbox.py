@@ -2,8 +2,24 @@ import os
 import re
 import sys
 import subprocess
+import pandas as pd
 
 def run_code(generated_text):
+    # Автоматически создаем data.csv, если его нет
+    if not os.path.exists("data.csv"):
+        dummy_data = """date,Temperature (Celsius),Humidity (%),Pressure (hPa),Dewpoint (Celsius)
+2026-10-20,10.5,65,1012,4.2
+2026-10-21,11.2,60,1010,3.8
+2026-10-22,9.8,70,1015,4.5
+2026-10-23,12.1,55,1008,3.1
+2026-10-24,13.5,50,1005,2.9
+2026-10-25,14.0,52,1004,2.5
+2026-10-26,12.8,58,1007,3.0
+"""
+        with open("data.csv", "w", encoding="utf-8") as f:
+            f.write(dummy_data)
+        print("\n[Песочница]: Создан тестовый файл data.csv")
+
     code_match = re.search(r"```python(.*?)```", generated_text, re.DOTALL)
     if not code_match:
         print("\n[Система]: Модель не выдала код в блоке ```python.")
@@ -42,7 +58,7 @@ if __name__ == '__main__':
     with open("temp_script.py", "w", encoding="utf-8") as f:
         f.write(wrapper)
     
-    print("\n[Система]: Запуск кода в песочнице")
+    print("\n[Система]: Запуск кода в песочнице...")
     try:
         result = subprocess.run(
             [sys.executable, "temp_script.py"],
