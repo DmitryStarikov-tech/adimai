@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from huggingface_hub import hf_hub_download
-
+from sandbox import run_code
 class PLELayer(nn.Module):
     def __init__(self, original_layer, model_ref, vocab_size, d_model, ple_dim):
         super().__init__()
@@ -118,6 +118,10 @@ def main():
         response = tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
         
         print(f"\nAdimai: {response}")
+        from sandbox import run_code
+        run_code(response)
+
+
 
 if __name__ == "__main__":
     main()
