@@ -2,10 +2,8 @@ import os
 import re
 import sys
 import subprocess
-import pandas as pd
 
 def run_code(generated_text):
-    # Автоматически создаем data.csv, если его нет
     if not os.path.exists("data.csv"):
         dummy_data = """date,Temperature (Celsius),Humidity (%),Pressure (hPa),Dewpoint (Celsius)
 2026-10-20,10.5,65,1012,4.2
@@ -31,24 +29,28 @@ def run_code(generated_text):
     wrapper = f"""
 import pandas as pd
 import matplotlib.pyplot as plt
+import inspect
 
 {code}
 
 if __name__ == '__main__':
     try:
         df = pd.read_csv('data.csv')
-        import inspect
-        current_module = inspect.getmodule(inspect.currentframe())
-        functions = inspect.getmembers(current_module, inspect.isfunction)
-        called = False
-        for name, func in functions:
-            if name.startswith('plot_'):
-                print(f"[Песочница]: Вызываю функцию {{name}}()...")
-                func(df)
-                called = True
-                break
-        if not called:
-            print("[Песочница]: Функция для графика не найдена. Код выполнен.")
+        
+        # Ищем функцию, которая начинается с plot_
+        functions = [(name, func) for name, func in locals().items() if inspect.isfunction(func) and name.startswith('plot_')]
+        
+        if functions:
+            func_name, func = functions[0]
+            print(f"[Песочница]: Вызываю функцию {{func_name}}()...")
+            # Передаем путь к файлу, так как модель написала функцию с аргументом file_path
+            try:
+                func('data.csv')
+            except TypeError:
+                # Если модель написала функцию без аргументов, пробуем вызвать без них
+                func()
+        else:
+            print("[Песочница]: Функция для графика не найдена, выполняю код как скрипт.")
     except FileNotFoundError:
         print("[Песочница]: ОШИБКА! Файл 'data.csv' не найден.")
     except Exception as e:
