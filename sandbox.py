@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import subprocess
+import inspect
 
 def run_code(generated_text):
     if not os.path.exists("data.csv"):
@@ -35,19 +36,18 @@ import inspect
 
 if __name__ == '__main__':
     try:
-        df = pd.read_csv('data.csv')
-        
-        # Ищем функцию, которая начинается с plot_
         functions = [(name, func) for name, func in locals().items() if inspect.isfunction(func) and name.startswith('plot_')]
         
         if functions:
             func_name, func = functions[0]
             print(f"[Песочница]: Вызываю функцию {{func_name}}()...")
-            # Передаем путь к файлу, так как модель написала функцию с аргументом file_path
-            try:
+            
+            sig = inspect.signature(func)
+            if len(sig.parameters) > 0:
+                # Если функция просит аргумент (например, file_path)
                 func('data.csv')
-            except TypeError:
-                # Если модель написала функцию без аргументов, пробуем вызвать без них
+            else:
+                # Если функция пустая (сама читает файл)
                 func()
         else:
             print("[Песочница]: Функция для графика не найдена, выполняю код как скрипт.")
