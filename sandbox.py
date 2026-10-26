@@ -7,12 +7,12 @@ import inspect
 def run_code(generated_text):
     if not os.path.exists("data.csv"):
         dummy_data = """Year,date,Temperature (Celsius),Humidity (%),Pressure (hPa),Dewpoint (Celsius)
-2026,2026-10-20,10.5,65,1012,4.2
-2026,2026-10-21,11.2,60,1010,3.8
-2026,2026-10-22,9.8,70,1015,4.5
-2026,2026-10-23,12.1,55,1008,3.1
-2026,2026-10-24,13.5,50,1005,2.9
-2026,2026-10-25,14.0,52,1004,2.5
+2020,2026-10-20,10.5,65,1012,4.2
+2021,2026-10-21,11.2,60,1010,3.8
+2022,2026-10-22,9.8,70,1015,4.5
+2023,2026-10-23,12.1,55,1008,3.1
+2024,2026-10-24,13.5,50,1005,2.9
+2025,2026-10-25,14.0,52,1004,2.5
 2026,2026-10-26,12.8,58,1007,3.0
 """
         with open("data.csv", "w", encoding="utf-8") as f:
@@ -28,7 +28,6 @@ def run_code(generated_text):
     code = code.replace("plt.show()", "plt.savefig('plot.png')")
     code = re.sub(r"pd\.read_csv\([^)]+\)", "pd.read_csv('data.csv')", code)
     
-    # Исправленная обертка
     wrapper = f"""
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -38,17 +37,22 @@ import inspect
 
 if __name__ == '__main__':
     try:
-        # Ищем только те имена, которые начинаются на plot_ и являются функциями
         funcs = [obj for name, obj in list(globals().items()) if name.startswith('plot_') and callable(obj)]
         
         if funcs:
             func = funcs[0]
-            func_name = func.__name__
-            print(f"[Песочница]: Вызываю функцию {{func_name}}()...")
+            print(f"[Песочница]: Вызываю функцию {{func.__name__}}()...")
             
             sig = inspect.signature(func)
             if len(sig.parameters) > 0:
-                func('data.csv')
+                # Если функция просит аргумент, даем ей данные из CSV
+                try:
+                    df = pd.read_csv('data.csv')
+                    func(df)
+                except Exception as e:
+                    # Если не сработало, пробуем передать путь к файлу
+                    print(f"[Песочница]: Передаю df не сработала, пробую путь к файлу...")
+                    func('data.csv')
             else:
                 func()
         else:
