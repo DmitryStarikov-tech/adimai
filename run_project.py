@@ -74,16 +74,17 @@ def inject_routers(model, router_layers=[8, 16, 24]):
     model.router_layers = router_layers
     return model
 
+
 def get_user_choice():
     print("\n\033[33m" + "─" * 65 + "\033[0m")
     print("\033[1mSecurity Guide:\033[0m Модель сгенерировала код.")
     print("   Хотите запустить его в безопасной песочнице?")
-    print("\033[33m" + "─" * 65 + "\033[0m")
 
     options = [
         "1. Да, я доверяю этому коду (Запустить)",
-        "2. Нет, вернуться к модели"
+        "2. Нет, вернуться к модели (Отменить)"
     ]
+    print("\033[33m" + "─" * 65 + "\033[0m")
     
     selected = 0
     fd = sys.stdin.fileno()
@@ -100,24 +101,32 @@ def get_user_choice():
             
             sys.stdout.write(f"\033[{len(options)}A")
             sys.stdout.flush()
-            
             ch = sys.stdin.read(1)
             if ch == '\x1b':
                 next1, next2 = sys.stdin.read(2)
                 if next1 == '[':
-                    if next2 == 'A':
+                    if next2 == 'A':  
                         selected = (selected - 1) % len(options)
-                    elif next2 == 'B':
+                    elif next2 == 'B': 
                         selected = (selected + 1) % len(options)
             elif ch == '\n' or ch == '\r':
                 break
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     
+
     sys.stdout.write(f"\033[{len(options)}A")
     for _ in range(len(options)):
         sys.stdout.write("\r\033[K\n")
-    sys.stdout.write(f"\033[{len(options)}A")
+
+    sys.stdout.write("\033[1A\r\033[K") 
+
+    sys.stdout.write("\033[1A\r\033[K")
+
+    sys.stdout.write("\033[1A\r\033[K")
+
+    sys.stdout.write("\033[1A\r\033[K\n\n")
+    sys.stdout.flush()
     
     return selected == 0
 def main():
@@ -139,6 +148,7 @@ def main():
     model = inject_ple(model)
     ple_path = hf_hub_download(repo_id=repo_id, filename="ple_weights.pt")
     model.load_state_dict(torch.load(ple_path, map_location=model.device), strict=False)
+
     model = inject_routers(model)
     routers_path = hf_hub_download(repo_id=repo_id, filename="routers_weights.pt")
     routers_state = torch.load(routers_path, map_location=model.device)
@@ -180,7 +190,7 @@ def main():
             if should_run:
                 run_code(response)
             else:
-                print(" [Система]: Запуск отменен пользователем.")
+                print(" [Система]: Запуск отменен.")
             print("\n")
 
 if __name__ == "__main__":
