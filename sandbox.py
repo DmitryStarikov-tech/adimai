@@ -2,86 +2,35 @@ import os
 import re
 import sys
 import subprocess
-import inspect
 
-def run_code(generated_text):
-    if not os.path.exists("data.csv"):
-        dummy_data = """Year,date,Temperature (Celsius),Humidity (%),Pressure (hPa),Dewpoint (Celsius)
-2020,2026-10-20,10.5,65,1012,4.2
-2021,2026-10-21,11.2,60,1010,3.8
-2022,2026-10-22,9.8,70,1015,4.5
-2023,2026-10-23,12.1,55,1008,3.1
-2024,2026-10-24,13.5,50,1005,2.9
-2025,2026-10-25,14.0,52,1004,2.5
-2026,2026-10-26,12.8,58,1007,3.0
-"""
-        with open("data.csv", "w", encoding="utf-8") as f:
-            f.write(dummy_data)
-        print("\n[Песочница]: Создан тестовый файл data.csv")
-
-    code_match = re.search(r"```python(.*?)```", generated_text, re.DOTALL)
-    if not code_match:
-        print("\n[Система]: Модель не выдала код в блоке ```python.")
-        return
-
-    code = code_match.group(1).strip()
-    code = code.replace("plt.show()", "plt.savefig('plot.png')")
-    code = re.sub(r"pd\.read_csv\([^)]+\)", "pd.read_csv('data.csv')", code)
+def run_code(response_text):
+    match = re.search(r"```python\n(.*?)\n```", response_text, re.DOTALL | re.IGNORECASE)
     
-    wrapper = f"""
-import pandas as pd
-import matplotlib.pyplot as plt
-import inspect
+    if not match:
+        match = re.search(r"```\n(.*?)\n```", response_text, re.DOTALL)
+        if not match:
+            print(" \033[31m[Sandbox]: Не удалось перехватить код в ответе модели.\033[0m")
+            return
 
-{code}
+    code = match.group(1)
+    filename = "sandbox_temp.py"
 
-if __name__ == '__main__':
     try:
-        funcs = [obj for name, obj in list(globals().items()) if name.startswith('plot_') and callable(obj)]
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(code)
         
-        if funcs:
-            func = funcs[0]
-            print(f"[Песочница]: Вызываю функцию {{func.__name__}}()...")
-            
-            sig = inspect.signature(func)
-            if len(sig.parameters) > 0:
-                # Если функция просит аргумент, даем ей данные из CSV
-                try:
-                    df = pd.read_csv('data.csv')
-                    func(df)
-                except Exception as e:
-                    # Если не сработало, пробуем передать путь к файлу
-                    print(f"[Песочница]: Передаю df не сработала, пробую путь к файлу...")
-                    func('data.csv')
-            else:
-                func()
-        else:
-            print("[Песочница]: Функция для графика не найдена.")
-    except FileNotFoundError:
-        print("[Песочница]: ОШИБКА! Файл 'data.csv' не найден.")
-    except Exception as e:
-        print(f"[Песочница]: ОШИБКА выполнения: {{e}}")
-"""
-    
-    with open("temp_script.py", "w", encoding="utf-8") as f:
-        f.write(wrapper)
-    
-    print("\n[Система]: Запуск кода в песочнице...")
-    try:
-        result = subprocess.run(
-            [sys.executable, "temp_script.py"],
-            capture_output=True, text=True, timeout=15
-        )
+        print(f"\033[36m[Sandbox]\033[0m: Файл {filename} создан. Запуск...\n")
+        print("\033[2m" + "─" * 65 + "\033[0m")
+
+        subprocess.run([sys.executable, filename], timeout=60)
         
-        if result.returncode == 0:
-            print("Код выполнен успешно!")
-            if result.stdout: print(result.stdout)
-            if os.path.exists("plot.png"):
-                print("График сохранен в файл 'plot.png'!")
-                os.system("open plot.png") 
-        else:
-            print("Ошибка при выполнении:")
-            print(result.stderr)
-            
+        print("\033[2m" + "─" * 65 + "\033[0m")
+        print("\033[32m[Sandbox]: Выполнение успешно завершено.\033[0m")
+        
     except subprocess.TimeoutExpired:
-        print("Ошибка: Код выполнялся слишком долго (больше 15 секунд).")
+        print("\n\033[31m[Sandbox]: Превышен лимит времени в 60 секунд.\033[0m")
+    except Exception as e:
+        print(f"\n\033[31m[Sandbox]: Системная ошибка при запуске: {e}\033[0m")
+    finally:
+        if os.path.exists(filename):
+            os.remove(filename)
