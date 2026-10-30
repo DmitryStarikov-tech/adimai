@@ -103,16 +103,15 @@ def get_user_choice():
                 break
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    
     sys.stdout.write(f"\033[{len(options)}A")
     for _ in range(len(options)):
         sys.stdout.write("\r\033[2K\n")
-        
-    sys.stdout.write("\033[5A")
-    for _ in range(5):
+
+    sys.stdout.write("\033[4A")
+    for _ in range(4):
         sys.stdout.write("\r\033[2K\n")
 
-    sys.stdout.write("\033[5A\r\033[2K")
+    sys.stdout.write("\033[4A\r\033[2K")
     sys.stdout.flush()
     
     return selected == 0
