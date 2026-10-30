@@ -1,9 +1,13 @@
 import os
+import sys
+import tty
+import termios
 import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from huggingface_hub import hf_hub_download
 from sandbox import run_code
+
 class PLELayer(nn.Module):
     def __init__(self, original_layer, model_ref, vocab_size, d_model, ple_dim):
         super().__init__()
@@ -70,6 +74,52 @@ def inject_routers(model, router_layers=[8, 16, 24]):
     model.router_layers = router_layers
     return model
 
+def get_user_choice():
+    print("\n\033[33m" + "─" * 65 + "\033[0m")
+    print("\033[1mSecurity Guide:\033[0m Модель сгенерировала код.")
+    print("   Хотите запустить его в безопасной песочнице?")
+    print("\033[33m" + "─" * 65 + "\033[0m")
+
+    options = [
+        "1. Да, я доверяю этому коду (Запустить)",
+        "2. Нет, вернуться к модели"
+    ]
+    
+    selected = 0
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    
+    try:
+        tty.setraw(sys.stdin.fileno())
+        while True:
+            for i, opt in enumerate(options):
+                if i == selected:
+                    sys.stdout.write(f"\r\033[K\033[32m❯ {opt}\033[0m\n")
+                else:
+                    sys.stdout.write(f"\r\033[K  {opt}\n")
+            
+            sys.stdout.write(f"\033[{len(options)}A")
+            sys.stdout.flush()
+            
+            ch = sys.stdin.read(1)
+            if ch == '\x1b':
+                next1, next2 = sys.stdin.read(2)
+                if next1 == '[':
+                    if next2 == 'A':
+                        selected = (selected - 1) % len(options)
+                    elif next2 == 'B':
+                        selected = (selected + 1) % len(options)
+            elif ch == '\n' or ch == '\r':
+                break
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    
+    sys.stdout.write(f"\033[{len(options)}A")
+    for _ in range(len(options)):
+        sys.stdout.write("\r\033[K\n")
+    sys.stdout.write(f"\033[{len(options)}A")
+    
+    return selected == 0
 def main():
     repo_id = "StarikovDima/adimai"
     
@@ -79,6 +129,7 @@ def main():
     )
     
     tokenizer = AutoTokenizer.from_pretrained(repo_id)
+    
     model = AutoModelForCausalLM.from_pretrained(
         repo_id, 
         quantization_config=quantization_config,
@@ -88,23 +139,27 @@ def main():
     model = inject_ple(model)
     ple_path = hf_hub_download(repo_id=repo_id, filename="ple_weights.pt")
     model.load_state_dict(torch.load(ple_path, map_location=model.device), strict=False)
-
-    print("[3/4] Загрузка и врезка роутеров условной глубины...")
     model = inject_routers(model)
     routers_path = hf_hub_download(repo_id=repo_id, filename="routers_weights.pt")
     routers_state = torch.load(routers_path, map_location=model.device)
-    # Конвертируем роутеры в float16 для экономии памяти
     routers_state = {k: v.half() for k, v in routers_state.items()}
     model.early_routers.load_state_dict(routers_state)
 
-    print("Готово! Терминал запущен.\n")
-    print("Введите 'exit' для выхода.")
+    print("\nГотово! Терминал запущен.")
+    print("Введите 'exit' для выхода.\n")
 
     while True:
-        user_input = input("\nВы: ")
+        try:
+            user_input = input("Вы: ")
+        except EOFError:
+            break
+
         if user_input.lower() in ['exit', 'quit', '/exit']:
             print("Завершение работы...")
             break
+        
+        if not user_input.strip():
+            continue
             
         inputs = tokenizer(f"<|im_start|>user\n{user_input}<|im_end|>\n<|im_start|>assistant\n", return_tensors="pt").to(model.device)
         
@@ -118,10 +173,15 @@ def main():
         response = tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
         
         print(f"\nAdimai: {response}")
-        from sandbox import run_code
-        run_code(response)
 
-
+        if "```python" in response:
+            should_run = get_user_choice()
+            
+            if should_run:
+                run_code(response)
+            else:
+                print(" [Система]: Запуск отменен пользователем.")
+            print("\n")
 
 if __name__ == "__main__":
     main()
