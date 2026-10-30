@@ -108,9 +108,10 @@ def get_user_choice():
     for _ in range(len(options)):
         sys.stdout.write("\r\033[2K\n")
         
-    sys.stdout.write("\033[4A")
+    sys.stdout.write("\033[5A")
     for _ in range(5):
         sys.stdout.write("\r\033[2K\n")
+
     sys.stdout.write("\033[5A\r\033[2K")
     sys.stdout.flush()
     
@@ -123,16 +124,19 @@ def main():
         load_in_4bit=True,
         bnb_4bit_compute_dtype=torch.float16
     )
-    
+
     tokenizer = AutoTokenizer.from_pretrained(repo_id)
+
     model = AutoModelForCausalLM.from_pretrained(
         repo_id, 
         quantization_config=quantization_config,
         device_map="auto"
     )
+
     model = inject_ple(model)
     ple_path = hf_hub_download(repo_id=repo_id, filename="ple_weights.pt")
     model.load_state_dict(torch.load(ple_path, map_location=model.device), strict=False)
+
     model = inject_routers(model)
     routers_path = hf_hub_download(repo_id=repo_id, filename="routers_weights.pt")
     routers_state = torch.load(routers_path, map_location=model.device)
