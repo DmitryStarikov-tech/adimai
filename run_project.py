@@ -67,16 +67,14 @@ def inject_routers(model, router_layers=[8, 16, 24]):
     return model
 
 def get_user_choice():
-    print("\n\033[33m" + "─" * 65 + "\033[0m")
-    print("\033[1mSecurity Guide:\033[0m Модель сгенерировала код.")
-    print("   Хотите запустить его в безопасной песочнице?")
-    print("\033[33m" + "─" * 65 + "\033[0m")
+    sys.stdout.write("\n\033[33m" + "─" * 65 + "\033[0m\n")
+    sys.stdout.write("Security guide\n\n")
+    sys.stdout.write("Quick safety check: Модель сгенерировала код. Хотите запустить его в безопасной песочнице?\n\n")
 
     options = [
         "1. Да, я доверяю этому коду (Запустить)",
         "2. Нет, вернуться к модели (Отменить)"
     ]
-    
     selected = 0
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
@@ -85,33 +83,25 @@ def get_user_choice():
         tty.setraw(sys.stdin.fileno())
         while True:
             for i, opt in enumerate(options):
-                prefix = "\033[32m❯ " if i == selected else "  "
-                color = "\033[32m" if i == selected else ""
-                reset = "\033[0m" if i == selected else ""
-                sys.stdout.write(f"\r\033[K{color}{prefix}{opt}{reset}\n")
+                prefix = "❯ " if i == selected else "  "
+                sys.stdout.write(f"\r\033[K{prefix}{opt}\n")
             
             sys.stdout.write(f"\033[{len(options)}A")
             sys.stdout.flush()
             
             ch = sys.stdin.read(1)
             if ch == '\x1b':
-                next1, next2 = sys.stdin.read(2)
+                next1 = sys.stdin.read(1)
+                next2 = sys.stdin.read(1)
                 if next1 == '[':
                     if next2 == 'A': selected = (selected - 1) % len(options)
                     elif next2 == 'B': selected = (selected + 1) % len(options)
-            elif ch == '\n' or ch == '\r':
+            elif ch in ('\n', '\r'):
                 break
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    sys.stdout.write(f"\033[{len(options)}A")
-    for _ in range(len(options)):
-        sys.stdout.write("\r\033[2K\n")
-
-    sys.stdout.write("\033[4A")
-    for _ in range(4):
-        sys.stdout.write("\r\033[2K\n")
-
-    sys.stdout.write("\033[4A\r\033[2K")
+        
+    sys.stdout.write("\r\033[6A\033[J")
     sys.stdout.flush()
     
     return selected == 0
