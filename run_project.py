@@ -22,11 +22,7 @@ class PLELayer(nn.Module):
 
     def forward(self, hidden_states, *args, **kwargs):
         layer_outputs = self.original_layer(hidden_states, *args, **kwargs)
-        
-        if isinstance(layer_outputs, tuple):
-            out_hidden = layer_outputs[0]
-        else:
-            out_hidden = layer_outputs
+        out_hidden = layer_outputs[0] if isinstance(layer_outputs, tuple) else layer_outputs
             
         seq_len = out_hidden.shape[1]
         input_ids = self._model_ref[0].current_input_ids[:, -seq_len:].to(out_hidden.device)
@@ -35,13 +31,9 @@ class PLELayer(nn.Module):
         ple_vec = self.ple_embed(input_ids) 
         gate = torch.sigmoid(self.w_gate(out_hidden)) 
         ple_out = self.w_proj(ple_vec * gate) 
-        
         out_hidden = out_hidden + ple_out
         
-        if isinstance(layer_outputs, tuple):
-            return (out_hidden,) + layer_outputs[1:]
-        else:
-            return out_hidden
+        return (out_hidden,) + layer_outputs[1:] if isinstance(layer_outputs, tuple) else out_hidden
 
 class EarlyExitRouter(nn.Module):
     def __init__(self, d_model, vocab_size):
@@ -74,17 +66,16 @@ def inject_routers(model, router_layers=[8, 16, 24]):
     model.router_layers = router_layers
     return model
 
-
 def get_user_choice():
     print("\n\033[33m" + "─" * 65 + "\033[0m")
     print("\033[1mSecurity Guide:\033[0m Модель сгенерировала код.")
     print("   Хотите запустить его в безопасной песочнице?")
+    print("\033[33m" + "─" * 65 + "\033[0m")
 
     options = [
         "1. Да, я доверяю этому коду (Запустить)",
         "2. Нет, вернуться к модели (Отменить)"
     ]
-    print("\033[33m" + "─" * 65 + "\033[0m")
     
     selected = 0
     fd = sys.stdin.fileno()
@@ -94,41 +85,37 @@ def get_user_choice():
         tty.setraw(sys.stdin.fileno())
         while True:
             for i, opt in enumerate(options):
-                if i == selected:
-                    sys.stdout.write(f"\r\033[K\033[32m❯ {opt}\033[0m\n")
-                else:
-                    sys.stdout.write(f"\r\033[K  {opt}\n")
+                prefix = "\033[32m❯ " if i == selected else "  "
+                color = "\033[32m" if i == selected else ""
+                reset = "\033[0m" if i == selected else ""
+                sys.stdout.write(f"\r\033[K{color}{prefix}{opt}{reset}\n")
             
             sys.stdout.write(f"\033[{len(options)}A")
             sys.stdout.flush()
+            
             ch = sys.stdin.read(1)
             if ch == '\x1b':
                 next1, next2 = sys.stdin.read(2)
                 if next1 == '[':
-                    if next2 == 'A':  
-                        selected = (selected - 1) % len(options)
-                    elif next2 == 'B': 
-                        selected = (selected + 1) % len(options)
+                    if next2 == 'A': selected = (selected - 1) % len(options)
+                    elif next2 == 'B': selected = (selected + 1) % len(options)
             elif ch == '\n' or ch == '\r':
                 break
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     
-
     sys.stdout.write(f"\033[{len(options)}A")
     for _ in range(len(options)):
-        sys.stdout.write("\r\033[K\n")
-
-    sys.stdout.write("\033[1A\r\033[K") 
-
-    sys.stdout.write("\033[1A\r\033[K")
-
-    sys.stdout.write("\033[1A\r\033[K")
-
-    sys.stdout.write("\033[1A\r\033[K\n\n")
+        sys.stdout.write("\r\033[2K\n")
+        
+    sys.stdout.write("\033[4A")
+    for _ in range(5):
+        sys.stdout.write("\r\033[2K\n")
+    sys.stdout.write("\033[5A\r\033[2K")
     sys.stdout.flush()
     
     return selected == 0
+
 def main():
     repo_id = "StarikovDima/adimai"
     
@@ -138,17 +125,14 @@ def main():
     )
     
     tokenizer = AutoTokenizer.from_pretrained(repo_id)
-    
     model = AutoModelForCausalLM.from_pretrained(
         repo_id, 
         quantization_config=quantization_config,
         device_map="auto"
     )
-
     model = inject_ple(model)
     ple_path = hf_hub_download(repo_id=repo_id, filename="ple_weights.pt")
     model.load_state_dict(torch.load(ple_path, map_location=model.device), strict=False)
-
     model = inject_routers(model)
     routers_path = hf_hub_download(repo_id=repo_id, filename="routers_weights.pt")
     routers_state = torch.load(routers_path, map_location=model.device)
