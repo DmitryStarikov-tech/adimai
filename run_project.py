@@ -139,7 +139,7 @@ def main():
     current_skill = "default"
 
     print("\nГотово! Терминал запущен.")
-    print("Команды: 'exit' (выход), '/skill analyst', '/skill default'\n")
+    print("Команды: 'exit' (выход)")
 
     while True:
         try:
