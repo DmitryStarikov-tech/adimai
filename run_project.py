@@ -132,27 +132,43 @@ def main():
     routers_state = {k: v.half() for k, v in routers_state.items()}
     model.early_routers.load_state_dict(routers_state)
 
+    system_prompts = {
+        "default": "Ты полезный ИИ-ассистент AdimAI. Отвечай кратко и по делу.",
+        "analyst": "Ты дата-саентист. Пиши сплошной Python-код без функций (без def). Если строишь график, всегда завершай код командой plt.show()."
+    }
+    current_skill = "default"
+
     print("\nГотово! Терминал запущен.")
-    print("Введите 'exit' для выхода.\n")
+    print("Команды: 'exit' (выход), '/skill analyst', '/skill default'\n")
 
     while True:
         try:
-            user_input = input("Вы: ")
+            user_input = input(f"\033[36m[{current_skill}]\033[0m Вы: ")
         except EOFError:
             break
 
         if user_input.lower() in ['exit', 'quit', '/exit']:
             print("Завершение работы...")
             break
-        
+            
+        if user_input.startswith('/skill '):
+            skill_name = user_input.split(' ', 1)[1].strip()
+            if skill_name in system_prompts:
+                current_skill = skill_name
+                print(f"\n\033[32m[Система]: Скилл '{skill_name}' успешно активирован!\033[0m\n")
+            else:
+                print(f"\n\033[31m[Система]: Скилл '{skill_name}' не найден.\033[0m\n")
+            continue
+
         if not user_input.strip():
             continue
             
-        inputs = tokenizer(f"<|im_start|>user\n{user_input}<|im_end|>\n<|im_start|>assistant\n", return_tensors="pt").to(model.device)
+        full_prompt = f"<|im_start|>system\n{system_prompts[current_skill]}<|im_end|>\n<|im_start|>user\n{user_input}<|im_end|>\n<|im_start|>assistant\n"
+        inputs = tokenizer(full_prompt, return_tensors="pt").to(model.device)
         
         outputs = model.generate(
             **inputs, 
-            max_new_tokens=200, 
+            max_new_tokens=300, 
             temperature=0.7, 
             do_sample=True, 
             pad_token_id=tokenizer.eos_token_id
