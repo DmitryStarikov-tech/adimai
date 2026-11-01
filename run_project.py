@@ -139,7 +139,7 @@ def main():
     current_skill = "default"
 
     print("\nГотово! Терминал запущен.")
-    print("Команды: 'exit' (выход)")
+    print("Для выхода напиши 'exit' ")
 
     while True:
         try:
