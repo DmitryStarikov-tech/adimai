@@ -17,7 +17,7 @@
 
 *Вы можете легко добавлять собственные скиллы, расширяя словарь `system_prompts` в файле `run_project.py`!*
 
-## Быстрый старт (Установка в 1 клик)
+## Быстрый старт (с Установкой в 1 клик)
 Запустите эту команду в терминале (macOS/Linux), чтобы автоматически скачать веса, развернуть окружение и запустить интерактивный чат:
 
 curl -s [https://raw.githubusercontent.com/DmitryStarikov-tech/adimai/main/start.sh](https://raw.githubusercontent.com/DmitryStarikov-tech/adimai/main/start.sh) | bash
